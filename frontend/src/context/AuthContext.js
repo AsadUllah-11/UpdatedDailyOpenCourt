@@ -1,7 +1,15 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getCurrentUser, login as apiLogin, logout as apiLogout } from '../services/api';
+import { login as loginAPI, getCurrentUser } from '../services/api';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,58 +20,43 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      try {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
         const userData = await getCurrentUser();
         setUser(userData);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
       }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const login = async (username, password) => {
     try {
-      const data = await apiLogin(username, password);
-      localStorage.setItem('access_token', data.access);
-      localStorage. setItem('refresh_token', data.refresh);
-      setUser(data.user);
-      return { success: true };
+      const data = await loginAPI(username, password);
+      localStorage.setItem('accessToken', data.access);
+      localStorage.setItem('refreshToken', data.refresh);
+      setUser(data. user);
+      return data;
     } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?. error || 'Login failed',
-      };
+      console.error('Login failed:', error);
+      throw error;
     }
   };
 
-  const logout = async () => {
-    try {
-      await apiLogout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      setUser(null);
-    }
+  const logout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
 };

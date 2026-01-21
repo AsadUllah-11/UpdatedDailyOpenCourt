@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   getApplications, 
@@ -16,40 +16,50 @@ import {
   ThumbsDown,
   RefreshCw,
   FileText,
-  Calendar,
-  MapPin,
-  User as UserIcon,
-  Clock,
-  Tag
+  ChevronUp,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
+import './Applications.css';
 
 const Applications = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Data State
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter State
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [policeStations, setPoliceStations] = useState([]);
   const [selectedPS, setSelectedPS] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [feedbackFilter, setFeedbackFilter] = useState('');
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  
+  // Sorting State
+  const [sortField, setSortField] = useState('sr_no');
+  const [sortDirection, setSortDirection] = useState('asc');
 
   useEffect(() => {
     fetchApplications();
     fetchMetadata();
-  }, [statusFilter, selectedPS, selectedCategory, search]);
+  }, []);
 
   const fetchApplications = async () => {
     setLoading(true);
     try {
-      const params = {};
-      if (statusFilter) params.status = statusFilter;
-      if (selectedPS) params.police_station = selectedPS;
-      if (selectedCategory) params.category = selectedCategory;
-      if (search) params.search = search;
-
-      const data = await getApplications(params);
+      const data = await getApplications({});
       setApplications(data. results || data);
     } catch (error) {
       console.error('Error fetching applications:', error);
@@ -95,15 +105,86 @@ const Applications = () => {
     window.location.href = `tel:${contact}`;
   };
 
-  const getStatusBadgeClass = (status) => {
-    const classes = {
-      'PENDING': 'status-pending',
-      'HEARD': 'status-heard',
-      'REFERRED': 'status-referred',
-      'CLOSED': 'status-closed'
-    };
-    return classes[status] || 'status-pending';
+  // Sorting Handler
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
   };
+
+  // Filter, Sort, and Paginate Data
+  const processedData = useMemo(() => {
+    let filtered = [... applications];
+
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(app =>
+        app.name?. toLowerCase().includes(searchLower) ||
+        app.dairy_no?.toLowerCase().includes(searchLower) ||
+        app.contact?. toLowerCase().includes(searchLower) ||
+        app.sr_no?.toString().includes(searchLower)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(app => app. status === statusFilter);
+    }
+
+    // Apply police station filter
+    if (selectedPS) {
+      filtered = filtered.filter(app => app.police_station === selectedPS);
+    }
+
+    // Apply category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(app => app.category === selectedCategory);
+    }
+
+    // Apply feedback filter
+    if (feedbackFilter) {
+      filtered = filtered.filter(app => app.feedback === feedbackFilter);
+    }
+
+    // Sort data
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (aValue == null) aValue = '';
+      if (bValue == null) bValue = '';
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      
+      if (sortDirection === 'asc') {
+        return aStr. localeCompare(bStr);
+      } else {
+        return bStr.localeCompare(aStr);
+      }
+    });
+
+    return filtered;
+  }, [applications, search, statusFilter, selectedPS, selectedCategory, feedbackFilter, sortField, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = processedData.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, selectedPS, selectedCategory, feedbackFilter]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -115,12 +196,91 @@ const Applications = () => {
     });
   };
 
+  const getStatusBadgeClass = (status) => {
+    const classes = {
+      'PENDING': 'badge badge-warning',
+      'HEARD': 'badge badge-success',
+      'REFERRED': 'badge badge-info',
+      'CLOSED': 'badge badge-secondary'
+    };
+    return classes[status] || 'badge badge-secondary';
+  };
+
+  const getFeedbackBadgeClass = (feedback) => {
+    const classes = {
+      'POSITIVE':  'badge badge-success',
+      'NEGATIVE': 'badge badge-danger',
+      'PENDING': 'badge badge-secondary'
+    };
+    return classes[feedback] || 'badge badge-secondary';
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setSelectedPS('');
+    setSelectedCategory('');
+    setFeedbackFilter('');
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) {
+      return <ChevronDown size={14} className="sort-icon-inactive" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp size={14} className="sort-icon-active" /> : 
+      <ChevronDown size={14} className="sort-icon-active" />;
+  };
+
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => setCurrentPage(i)}
+          className={`pagination-btn ${currentPage === i ?  'active' : ''}`}
+        >
+          {i}
+        </button>
+      );
+    }
+
+    return buttons;
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Loading applications...</p>
+      </div>
+    );
+  }
+
+  const hasActiveFilters = search || statusFilter || selectedPS || selectedCategory || feedbackFilter;
+
   return (
-    <div className="applications-page">
-      <div className="page-header">
+    <div className="applications-table-page">
+      {/* Header */}
+      <div className="page-header-section">
         <div>
-          <h2>Open Court Applications</h2>
-          <p>Total:  {applications.length} applications</p>
+          <h2 className="page-title">Open Court Applications</h2>
+          <p className="page-subtitle">
+            Total:  <strong>{processedData.length}</strong> applications
+            {processedData.length !== applications.length && 
+              ` (filtered from ${applications.length})`
+            }
+          </p>
         </div>
         <button onClick={fetchApplications} className="refresh-btn">
           <RefreshCw size={18} />
@@ -128,22 +288,27 @@ const Applications = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
+      {/* Single Row Filters */}
+      <div className="filters-container-compact">
+        <div className="search-box-main">
           <Search size={20} />
           <input
             type="text"
-            placeholder="Search by name, dairy no, or contact..."
+            placeholder="Search by name, dairy no, contact, SR no..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button onClick={() => setSearch('')} className="clear-icon-btn">
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <select 
+          className="filter-select-compact" 
           value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="filter-select"
+          onChange={(e) => setStatusFilter(e.target. value)}
         >
           <option value="">All Status</option>
           <option value="PENDING">Pending</option>
@@ -152,213 +317,250 @@ const Applications = () => {
           <option value="CLOSED">Closed</option>
         </select>
 
-        {user?. role === 'ADMIN' && (
-          <select 
-            value={selectedPS} 
-            onChange={(e) => setSelectedPS(e.target.value)}
-            className="filter-select"
-          >
-            <option value="">All Police Stations</option>
-            {policeStations.map((ps, idx) => (
-              <option key={idx} value={ps}>{ps}</option>
-            ))}
-          </select>
-        )}
+        <select 
+          className="filter-select-compact" 
+          value={selectedPS} 
+          onChange={(e) => setSelectedPS(e.target.value)}
+        >
+          <option value="">All Police Stations</option>
+          {policeStations.map((ps, idx) => (
+            <option key={idx} value={ps}>{ps}</option>
+          ))}
+        </select>
 
         <select 
+          className="filter-select-compact" 
           value={selectedCategory} 
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="filter-select"
         >
           <option value="">All Categories</option>
           {categories.map((cat, idx) => (
             <option key={idx} value={cat}>{cat}</option>
           ))}
         </select>
+
+        <select 
+          className="filter-select-compact" 
+          value={feedbackFilter} 
+          onChange={(e) => setFeedbackFilter(e.target.value)}
+        >
+          <option value="">All Feedback</option>
+          <option value="POSITIVE">Positive</option>
+          <option value="NEGATIVE">Negative</option>
+          <option value="PENDING">Pending</option>
+        </select>
+
+        {hasActiveFilters && (
+          <button onClick={clearFilters} className="clear-all-btn">
+            <X size={16} />
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Applications List */}
-      {loading ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading applications...</p>
-        </div>
-      ) : applications.length === 0 ? (
-        <div className="empty-state">
-          <FileText size={48} />
-          <h3>No Applications Found</h3>
-          <p>Try adjusting your filters or upload data from Excel</p>
-        </div>
-      ) : (
-        <div className="applications-grid">
-          {applications.map((app) => (
-            <div key={app.id} className="application-card">
-              {/* Header */}
-              <div className="app-card-header">
-                <div>
-                  <h3>{app.name}</h3>
-                  <p className="dairy-no">
-                    <strong>Dairy No:</strong> {app.dairy_no}
-                  </p>
-                  <p className="sr-no">Sr.  No: {app.sr_no}</p>
-                </div>
-                <span className={`status-badge ${getStatusBadgeClass(app.status)}`}>
-                  {app.status}
-                </span>
-              </div>
-
-              {/* Body - All Columns */}
-              <div className="app-card-body">
-                {/* Row 1 */}
-                <div className="info-row">
-                  <Phone size={16} />
-                  <span className="label">Contact:</span>
-                  <span className="value">{app.contact || 'N/A'}</span>
-                </div>
-
-                {/* Row 2 */}
-                <div className="info-row">
-                  <MapPin size={16} />
-                  <span className="label">Police Station:</span>
-                  <span className="value">{app. police_station || 'N/A'}</span>
-                </div>
-
-                {/* Row 3 */}
-                <div className="info-row">
-                  <MapPin size={16} />
-                  <span className="label">Division:</span>
-                  <span className="value">{app.division || 'N/A'}</span>
-                </div>
-
-                {/* Row 4 */}
-                <div className="info-row">
-                  <Tag size={16} />
-                  <span className="label">Category: </span>
-                  <span className="value">{app.category || 'N/A'}</span>
-                </div>
-
-                {/* Row 5 */}
-                <div className="info-row">
-                  <UserIcon size={16} />
-                  <span className="label">Marked To:</span>
-                  <span className="value">{app.marked_to || 'N/A'}</span>
-                </div>
-
-                {/* Row 6 */}
-                <div className="info-row">
-                  <UserIcon size={16} />
-                  <span className="label">Marked By:</span>
-                  <span className="value">{app.marked_by || 'N/A'}</span>
-                </div>
-
-                {/* Row 7 */}
-                <div className="info-row">
-                  <Calendar size={16} />
-                  <span className="label">Date:</span>
-                  <span className="value">{formatDate(app.date)}</span>
-                </div>
-
-                {/* Row 8 */}
-                <div className="info-row">
-                  <Clock size={16} />
-                  <span className="label">Timeline:</span>
-                  <span className="value">{app.timeline || 'N/A'}</span>
-                </div>
-
-                {/* Row 9 */}
-                <div className="info-row">
-                  <Clock size={16} />
-                  <span className="label">Days: </span>
-                  <span className="value">{app.days !== null ? `${app.days} days` : 'N/A'}</span>
-                </div>
-
-                {/* Row 10 */}
-                <div className="info-row">
-                  <Tag size={16} />
-                  <span className="label">Dairy PS:</span>
-                  <span className="value">{app. dairy_ps || 'N/A'}</span>
-                </div>
-
-                {/* Row 11 - Feedback */}
-                <div className="info-row">
-                  <span className="label">Feedback:</span>
-                  <span className={`feedback-badge feedback-${app.feedback.toLowerCase()}`}>
-                    {app.feedback}
-                  </span>
-                </div>
-
-                {/* Remarks if any */}
-                {app.remarks && (
-                  <div className="info-row-full">
-                    <strong>Remarks:</strong>
-                    <p className="remarks-text">{app.remarks}</p>
+      {/* Table with Scrollbars */}
+      <div className="table-container">
+        <div className="table-scroll-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('sr_no')} className="sortable-header">
+                  <div className="th-content">
+                    SR NO <SortIcon field="sr_no" />
                   </div>
-                )}
-              </div>
-
-              {/* Footer - Actions */}
-              <div className="app-card-footer">
-                {user?.role === 'ADMIN' && (
-                  <>
-                    <button 
-                      onClick={() => handleCall(app.contact)}
-                      className="action-btn btn-call"
-                      title="Call Applicant"
-                    >
-                      <Phone size={16} />
-                      Call
-                    </button>
-
-                    {app.status === 'PENDING' && (
-                      <>
+                </th>
+                <th onClick={() => handleSort('dairy_no')} className="sortable-header">
+                  <div className="th-content">
+                    DAIRY NO <SortIcon field="dairy_no" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('name')} className="sortable-header">
+                  <div className="th-content">
+                    NAME <SortIcon field="name" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('contact')} className="sortable-header">
+                  <div className="th-content">
+                    CONTACT <SortIcon field="contact" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('police_station')} className="sortable-header">
+                  <div className="th-content">
+                    POLICE STATION <SortIcon field="police_station" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('division')} className="sortable-header">
+                  <div className="th-content">
+                    DIVISION <SortIcon field="division" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('category')} className="sortable-header">
+                  <div className="th-content">
+                    CATEGORY <SortIcon field="category" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('marked_to')} className="sortable-header">
+                  <div className="th-content">
+                    MARKED TO <SortIcon field="marked_to" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('status')} className="sortable-header">
+                  <div className="th-content">
+                    STATUS <SortIcon field="status" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('feedback')} className="sortable-header">
+                  <div className="th-content">
+                    FEEDBACK <SortIcon field="feedback" />
+                  </div>
+                </th>
+                <th onClick={() => handleSort('date')} className="sortable-header">
+                  <div className="th-content">
+                    DATE <SortIcon field="date" />
+                  </div>
+                </th>
+                <th className="actions-header">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentData.length === 0 ? (
+                <tr>
+                  <td colSpan="12" className="no-data-row">
+                    <div className="no-data-content">
+                      <FileText size={48} />
+                      <p>No applications found</p>
+                      <small>Try adjusting your filters</small>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                currentData.map((app) => (
+                  <tr key={app.id} className="data-row">
+                    <td className="cell-sr">{app.sr_no}</td>
+                    <td className="cell-dairy">{app.dairy_no}</td>
+                    <td className="cell-name">{app.name}</td>
+                    <td className="cell-contact">
+                      <button 
+                        onClick={() => handleCall(app.contact)} 
+                        className="phone-btn"
+                        title="Call"
+                      >
+                        <Phone size={14} />
+                        {app.contact}
+                      </button>
+                    </td>
+                    <td className="cell-ps">{app.police_station}</td>
+                    <td className="cell-division">{app. division || 'N/A'}</td>
+                    <td className="cell-category">{app.category}</td>
+                    <td className="cell-marked">{app.marked_to || 'N/A'}</td>
+                    <td className="cell-status">
+                      <span className={getStatusBadgeClass(app. status)}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="cell-feedback">
+                      <span className={getFeedbackBadgeClass(app.feedback)}>
+                        {app.feedback}
+                      </span>
+                    </td>
+                    <td className="cell-date">{formatDate(app.date)}</td>
+                    <td className="cell-actions">
+                      <div className="action-btns">
                         <button 
-                          onClick={() => handleStatusUpdate(app.id, 'HEARD')}
-                          className="action-btn btn-success"
+                          onClick={() => navigate(`/applications/${app.id}`)}
+                          className="act-btn btn-view"
+                          title="View"
                         >
-                          Mark Heard
+                          <Eye size={16} />
                         </button>
-                        <button 
-                          onClick={() => handleStatusUpdate(app.id, 'REFERRED')}
-                          className="action-btn btn-warning"
-                        >
-                          Refer
-                        </button>
-                      </>
-                    )}
-
-                    {app.feedback === 'PENDING' && (
-                      <>
                         <button 
                           onClick={() => handleFeedbackUpdate(app.id, 'POSITIVE')}
-                          className="action-btn btn-positive"
-                          title="Positive Feedback"
+                          className="act-btn btn-thumbs-up"
+                          title="Positive"
+                          disabled={app.feedback === 'POSITIVE'}
                         >
                           <ThumbsUp size={16} />
                         </button>
                         <button 
-                          onClick={() => handleFeedbackUpdate(app.id, 'NEGATIVE')}
-                          className="action-btn btn-negative"
-                          title="Negative Feedback"
+                          onClick={() => handleFeedbackUpdate(app. id, 'NEGATIVE')}
+                          className="act-btn btn-thumbs-down"
+                          title="Negative"
+                          disabled={app.feedback === 'NEGATIVE'}
                         >
                           <ThumbsDown size={16} />
                         </button>
-                      </>
-                    )}
-                  </>
-                )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                {user?.role === 'STAFF' && (
-                  <button 
-                    onClick={() => navigate(`/applications/${app.id}`)}
-                    className="action-btn btn-primary"
-                  >
-                    <Eye size={16} />
-                    View Details
-                  </button>
-                )}
-              </div>
+      {/* Pagination */}
+      {processedData.length > 0 && (
+        <div className="pagination-section">
+          <div className="pagination-info-text">
+            Showing {startIndex + 1} to {Math. min(endIndex, processedData.length)} of {processedData.length} entries
+          </div>
+
+          <div className="pagination-right">
+            <div className="per-page-selector">
+              <span>Show: </span>
+              <select value={itemsPerPage} onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+              </select>
             </div>
-          ))}
+
+            <div className="pagination-btns">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="pg-btn"
+                title="First"
+              >
+                <ChevronsLeft size={18} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="pg-btn"
+                title="Previous"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {renderPaginationButtons()}
+
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="pg-btn"
+                title="Next"
+              >
+                <ChevronRight size={18} />
+              </button>
+
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="pg-btn"
+                title="Last"
+              >
+                <ChevronsRight size={18} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

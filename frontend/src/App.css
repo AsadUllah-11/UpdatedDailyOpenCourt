@@ -1253,3 +1253,44 @@ body {
     text-align: left;
   }
 }
+
+/* Add to existing App.css */
+
+/* Header Logo Fix */
+.header-logo-wrapper {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  background: var(--white);
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.header-logo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-blue);
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  font-weight: 400;
+}

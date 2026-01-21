@@ -7,7 +7,8 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Applications from './pages/Applications';
-import DataTablePage from './pages/DataTablePage';  // ⭐ CORRECT IMPORT
+import ApplicationDetail from './pages/ApplicationDetail';  // ⚡ ADD THIS
+import DataTablePage from './pages/DataTablePage';
 import UploadExcel from './pages/UploadExcel';
 import Analytics from './pages/Analytics';
 import './App.css';
@@ -40,8 +41,17 @@ function App() {
               </Layout>
             </PrivateRoute>
           } />
+
+          {/* ⚡ Application Detail - ADD THIS */}
+          <Route path="/applications/:id" element={
+            <PrivateRoute>
+              <Layout>
+                <ApplicationDetail />
+              </Layout>
+            </PrivateRoute>
+          } />
           
-          {/* ⭐ DATA TABLE - Professional Table View */}
+          {/* Data Table */}
           <Route path="/data-table" element={
             <PrivateRoute>
               <Layout>

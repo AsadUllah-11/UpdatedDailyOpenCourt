@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User } from 'lucide-react';
+import { User, Lock, LogIn } from 'lucide-react';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -16,15 +16,16 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const result = await login(username, password);
-    
-    if (result. success) {
+    try {
+      await login(username, password);
+      console.log('✅ Login successful');
       navigate('/dashboard');
-    } else {
-      setError(result.error);
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      setError(err.response?.data?.error || 'Invalid username or password');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
@@ -32,20 +33,22 @@ const Login = () => {
       <div className="login-card">
         <div className="login-header">
           <img 
-            src="/punjab-police-logo.png" 
+            src="/punjab-police-logo.jpeg" 
             alt="Punjab Police" 
             className="login-logo"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
+            onError={(e) => e.target.style.display = 'none'}
           />
           <h1>Daily Open Court</h1>
           <p>Punjab Police Management System</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="error-message">{error}</div>}
-          
+        <form className="login-form" onSubmit={handleSubmit}>
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+
           <div className="form-group">
             <label>
               <User size={18} />
@@ -57,6 +60,7 @@ const Login = () => {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your username"
               required
+              disabled={loading}
             />
           </div>
 
@@ -71,18 +75,27 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
+              disabled={loading}
             />
           </div>
 
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Logging in.. .' : 'Login'}
+          <button 
+            type="submit" 
+            className="login-btn" 
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <div className="spinner" style={{ width: '20px', height: '20px' }}></div>
+                Logging in...
+              </>
+            ) : (
+              <>
+                <LogIn size={20} />
+                Login
+              </>
+            )}
           </button>
-
-          <div className="login-help">
-            <p><strong>Demo Credentials:</strong></p>
-            <p>DIG: <code>admin / 123</code></p>
-            <p>PSO: <code>pso / 123</code></p>
-          </div>
         </form>
       </div>
     </div>
