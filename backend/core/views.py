@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
-from django. db.models import Count, Q
-from django.utils. dateparse import parse_date
+from django.db.models import Count, Q
+from django.utils.dateparse import parse_date
 import openpyxl
 from datetime import datetime
 
@@ -25,7 +25,7 @@ User = get_user_model()
 @permission_classes([AllowAny])
 def login_view(request):
     """Login endpoint"""
-    username = request. data.get('username')
+    username = request.data.get('username')
     password = request.data.get('password')
     
     if not username or not password:
@@ -36,8 +36,8 @@ def login_view(request):
     
     user = authenticate(username=username, password=password)
     
-    if user: 
-        refresh = RefreshToken. for_user(user)
+    if user:
+        refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
@@ -55,7 +55,7 @@ def login_view(request):
 def logout_view(request):
     """Logout endpoint"""
     try:
-        refresh_token = request.data. get('refresh')
+        refresh_token = request.data.get('refresh')
         token = RefreshToken(refresh_token)
         token.blacklist()
         return Response({'message': 'Successfully logged out'})
@@ -85,26 +85,30 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
         import time
         start = time.time()
         
-        # ⚡ OPTIMIZATION: Only select necessary fields
-        queryset = OpenCourtApplication.objects.only(
-            'id', 'sr_no', 'dairy_no', 'name', 'contact', 'marked_to',
-            'date', 'police_station', 'division', 'category', 
-            'status', 'feedback', 'created_at'
-        )
+        # ⚡ Get all fields for proper CRUD operations
+        queryset = OpenCourtApplication.objects.all()
         
-        user = self. request.user
+        user = self.request.user
         
-        # If Staff, show only their station's applications
-        if user.role == 'STAFF' and user.police_station:
-            queryset = queryset.filter(police_station=user.police_station)
+        # 🆕 FIXED: Better staff filtering with debug logging
+        if user.role == 'STAFF':
+            if user.police_station:
+                print(f"🔍 Staff user: {user.username}, Police Station: {user.police_station}")
+                queryset = queryset.filter(police_station__iexact=user.police_station)
+                print(f"📊 Found {queryset.count()} applications for {user.police_station}")
+            else:
+                print(f"⚠️ Staff user {user.username} has no police_station assigned!")
+                queryset = queryset.none()  # Return empty queryset
+        else:
+            print(f"👤 Admin/Other user: {user.username}, showing all applications")
         
         # Filter by status
-        status_param = self. request.query_params.get('status')
+        status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
         
         # Filter by police station
-        ps_param = self. request. query_params.get('police_station')
+        ps_param = self.request.query_params.get('police_station')
         if ps_param:
             queryset = queryset.filter(police_station=ps_param)
         
@@ -113,8 +117,30 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
         if category_param:
             queryset = queryset.filter(category=category_param)
         
+        # Filter by date range (From Date)
+        from_date = self.request.query_params.get('from_date')
+        if from_date:
+            try:
+                parsed_from_date = parse_date(from_date)
+                if parsed_from_date:
+                    queryset = queryset.filter(date__gte=parsed_from_date)
+                    print(f"📅 Filtering from date: {parsed_from_date}")
+            except Exception as e:
+                print(f"⚠️ Error parsing from_date: {e}")
+        
+        # Filter by date range (To Date)
+        to_date = self.request.query_params.get('to_date')
+        if to_date:
+            try:
+                parsed_to_date = parse_date(to_date)
+                if parsed_to_date:
+                    queryset = queryset.filter(date__lte=parsed_to_date)
+                    print(f"📅 Filtering to date: {parsed_to_date}")
+            except Exception as e:
+                print(f"⚠️ Error parsing to_date: {e}")
+        
         # Search
-        search = self.request.query_params. get('search')
+        search = self.request.query_params.get('search')
         if search:
             queryset = queryset.filter(
                 Q(name__icontains=search) |
@@ -123,52 +149,47 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
                 Q(sr_no__icontains=str(search))
             )
         
-        # ⚡ Order by primary key for faster retrieval
-        queryset = queryset.order_by('id')
+        # Order by created_at desc
+        queryset = queryset.order_by('-created_at')
         
         end = time.time()
         print(f"⚡ Query time: {(end - start) * 1000:.2f}ms")
+        print(f"✅ Returning {queryset.count()} applications")
         
         return queryset
 
     def list(self, request, *args, **kwargs):
-        """Override list to optimize serialization"""
-        import time
-        start = time.time()
-        
+        """Override list to return full serialized data"""
         queryset = self.filter_queryset(self.get_queryset())
-        
-        # ⚡ Use values() for faster serialization
-        data = list(queryset.values(
-            'id', 'sr_no', 'dairy_no', 'name', 'contact', 'marked_to',
-            'date', 'police_station', 'division', 'category', 
-            'status', 'feedback', 'created_at'
-        ))
-        
-        end = time.time()
-        print(f"⚡ Serialization time: {(end - start) * 1000:.2f}ms")
-        print(f"✅ Returning {len(data)} records")
-        
-        return Response(data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         """Set created_by to current user"""
-        serializer. save(created_by=self. request.user)
+        serializer.save(created_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Update application"""
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Delete application"""
+        instance.delete()
     
     @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
         """Update application status"""
-        application = self. get_object()
+        application = self.get_object()
         new_status = request.data.get('status')
         
         if new_status not in ['PENDING', 'HEARD', 'REFERRED', 'CLOSED']:
             return Response(
-                {'error':  'Invalid status'},
+                {'error': 'Invalid status'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         application.status = new_status
-        application. save()
+        application.save()
         
         serializer = self.get_serializer(application)
         return Response(serializer.data)
@@ -178,7 +199,7 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
         """Update application feedback"""
         application = self.get_object()
         feedback = request.data.get('feedback')
-        remarks = request. data.get('remarks', '')
+        remarks = request.data.get('remarks', '')
         
         if feedback not in ['POSITIVE', 'NEGATIVE', 'PENDING']:
             return Response(
@@ -191,7 +212,7 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
             application.remarks = remarks
         application.save()
         
-        serializer = self. get_serializer(application)
+        serializer = self.get_serializer(application)
         return Response(serializer.data)
 
 
@@ -207,9 +228,9 @@ def upload_excel(request):
     
     excel_file = request.FILES['file']
     
-    if not excel_file. name. endswith(('.xlsx', '.xls')):
+    if not excel_file.name.endswith(('.xlsx', '.xls')):
         return Response(
-            {'error': 'File must be Excel format (. xlsx or .xls)'},
+            {'error': 'File must be Excel format (.xlsx or .xls)'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
@@ -245,7 +266,7 @@ def upload_excel(request):
                 
                 application_data = {
                     'dairy_no': row[1] or '',
-                    'name':  row[2] or '',
+                    'name': row[2] or '',
                     'contact': str(row[3]) if row[3] else '',
                     'marked_to': row[4] or '',
                     'date': date_value,
@@ -261,33 +282,31 @@ def upload_excel(request):
                 }
                 
                 # Check if application exists
-                application, created = OpenCourtApplication. objects.update_or_create(
+                application, created = OpenCourtApplication.objects.update_or_create(
                     sr_no=sr_no,
                     defaults=application_data
                 )
                 
-                if not created:
+                if created:
                     application.created_by = request.user
                     application.save()
-                
-                if created:
                     created_count += 1
                 else:
                     updated_count += 1
                     
-            except Exception as e: 
+            except Exception as e:
                 errors.append(f"Row {row_num}: {str(e)}")
         
         return Response({
             'message': 'Excel file processed successfully',
             'created': created_count,
-            'updated':  updated_count,
+            'updated': updated_count,
             'errors': errors
         })
         
     except Exception as e:
         return Response(
-            {'error':  f'Error processing file: {str(e)}'},
+            {'error': f'Error processing file: {str(e)}'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -303,12 +322,12 @@ def dashboard_stats(request):
     
     # Filter for STAFF role
     if user.role == 'STAFF' and user.police_station:
-        queryset = queryset.filter(police_station=user.police_station)
+        queryset = queryset.filter(police_station__iexact=user.police_station)
     
     # Overall stats
     stats = {
         'total_applications': queryset.count(),
-        'pending':  queryset.filter(status='PENDING').count(),
+        'pending': queryset.filter(status='PENDING').count(),
         'heard': queryset.filter(status='HEARD').count(),
         'referred': queryset.filter(status='REFERRED').count(),
         'closed': queryset.filter(status='CLOSED').count(),
@@ -355,7 +374,7 @@ def dashboard_stats(request):
 @permission_classes([IsAuthenticated])
 def police_stations(request):
     """Get list of all police stations"""
-    stations = OpenCourtApplication.objects. values_list('police_station', flat=True).distinct()
+    stations = OpenCourtApplication.objects.values_list('police_station', flat=True).distinct()
     return Response(list(stations))
 
 
@@ -363,5 +382,5 @@ def police_stations(request):
 @permission_classes([IsAuthenticated])
 def categories(request):
     """Get list of all categories"""
-    cats = OpenCourtApplication.objects. values_list('category', flat=True).distinct()
+    cats = OpenCourtApplication.objects.values_list('category', flat=True).distinct()
     return Response(list(cats))

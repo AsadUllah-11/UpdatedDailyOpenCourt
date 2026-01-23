@@ -22,8 +22,11 @@ import {
   ChevronsRight,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Calendar,
+  Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import './Applications.css';
 
 const Applications = () => {
@@ -43,6 +46,10 @@ const Applications = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [feedbackFilter, setFeedbackFilter] = useState('');
   
+  // Date Filter State
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -60,7 +67,7 @@ const Applications = () => {
     setLoading(true);
     try {
       const data = await getApplications({});
-      setApplications(data. results || data);
+      setApplications(data.results || data);
     } catch (error) {
       console.error('Error fetching applications:', error);
     } finally {
@@ -116,24 +123,106 @@ const Applications = () => {
     setCurrentPage(1);
   };
 
+  // Export to Excel Function (WITHOUT CREATED AT)
+  const exportToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = processedData.map((app, index) => ({
+        'SR NO': app.sr_no || '',
+        'DAIRY NO': app.dairy_no || '',
+        'NAME': app.name || '',
+        'CONTACT': app.contact || '',
+        'POLICE STATION': app.police_station || '',
+        'DIVISION': app.division || 'N/A',
+        'CATEGORY': app.category || '',
+        'MARKED TO': app.marked_to || 'N/A',
+        'STATUS': app.status || '',
+        'FEEDBACK': app.feedback || '',
+        'DATE': app.date ? formatDate(app.date) : 'N/A'
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      const colWidths = [
+        { wch: 8 },  // SR NO
+        { wch: 15 }, // DAIRY NO
+        { wch: 25 }, // NAME
+        { wch: 15 }, // CONTACT
+        { wch: 20 }, // POLICE STATION
+        { wch: 15 }, // DIVISION
+        { wch: 25 }, // CATEGORY
+        { wch: 20 }, // MARKED TO
+        { wch: 12 }, // STATUS
+        { wch: 12 }, // FEEDBACK
+        { wch: 15 }  // DATE
+      ];
+      ws['!cols'] = colWidths;
+
+      // Style the header row
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const address = XLSX.utils.encode_col(C) + "1";
+        if (!ws[address]) continue;
+        ws[address].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "3B82F6" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Applications');
+
+      // Generate filename with date and filters
+      const today = new Date().toISOString().split('T')[0];
+      let filename = `Open_Court_Applications_${today}`;
+      
+      if (fromDate && toDate) {
+        filename += `_${fromDate}_to_${toDate}`;
+      } else if (fromDate) {
+        filename += `_from_${fromDate}`;
+      } else if (toDate) {
+        filename += `_until_${toDate}`;
+      }
+      
+      if (selectedPS) {
+        filename += `_${selectedPS.replace(/\s+/g, '_')}`;
+      }
+      
+      filename += '.xlsx';
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      // Show success message
+      alert(`✅ Successfully exported ${exportData.length} applications to Excel!`);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('❌ Failed to export to Excel. Please try again.');
+    }
+  };
+
   // Filter, Sort, and Paginate Data
   const processedData = useMemo(() => {
-    let filtered = [... applications];
+    let filtered = [...applications];
 
     // Apply search filter
     if (search) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(app =>
-        app.name?. toLowerCase().includes(searchLower) ||
+        app.name?.toLowerCase().includes(searchLower) ||
         app.dairy_no?.toLowerCase().includes(searchLower) ||
-        app.contact?. toLowerCase().includes(searchLower) ||
+        app.contact?.toLowerCase().includes(searchLower) ||
         app.sr_no?.toString().includes(searchLower)
       );
     }
 
     // Apply status filter
     if (statusFilter) {
-      filtered = filtered.filter(app => app. status === statusFilter);
+      filtered = filtered.filter(app => app.status === statusFilter);
     }
 
     // Apply police station filter
@@ -149,6 +238,21 @@ const Applications = () => {
     // Apply feedback filter
     if (feedbackFilter) {
       filtered = filtered.filter(app => app.feedback === feedbackFilter);
+    }
+
+    // Apply date range filter
+    if (fromDate) {
+      filtered = filtered.filter(app => {
+        if (!app.date) return false;
+        return new Date(app.date) >= new Date(fromDate);
+      });
+    }
+
+    if (toDate) {
+      filtered = filtered.filter(app => {
+        if (!app.date) return false;
+        return new Date(app.date) <= new Date(toDate);
+      });
     }
 
     // Sort data
@@ -167,14 +271,14 @@ const Applications = () => {
       const bStr = String(bValue).toLowerCase();
       
       if (sortDirection === 'asc') {
-        return aStr. localeCompare(bStr);
+        return aStr.localeCompare(bStr);
       } else {
         return bStr.localeCompare(aStr);
       }
     });
 
     return filtered;
-  }, [applications, search, statusFilter, selectedPS, selectedCategory, feedbackFilter, sortField, sortDirection]);
+  }, [applications, search, statusFilter, selectedPS, selectedCategory, feedbackFilter, fromDate, toDate, sortField, sortDirection]);
 
   // Pagination
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
@@ -184,7 +288,7 @@ const Applications = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, selectedPS, selectedCategory, feedbackFilter]);
+  }, [search, statusFilter, selectedPS, selectedCategory, feedbackFilter, fromDate, toDate]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -208,7 +312,7 @@ const Applications = () => {
 
   const getFeedbackBadgeClass = (feedback) => {
     const classes = {
-      'POSITIVE':  'badge badge-success',
+      'POSITIVE': 'badge badge-success',
       'NEGATIVE': 'badge badge-danger',
       'PENDING': 'badge badge-secondary'
     };
@@ -221,6 +325,8 @@ const Applications = () => {
     setSelectedPS('');
     setSelectedCategory('');
     setFeedbackFilter('');
+    setFromDate('');
+    setToDate('');
     setCurrentPage(1);
   };
 
@@ -248,7 +354,7 @@ const Applications = () => {
         <button
           key={i}
           onClick={() => setCurrentPage(i)}
-          className={`pagination-btn ${currentPage === i ?  'active' : ''}`}
+          className={`pagination-btn ${currentPage === i ? 'active' : ''}`}
         >
           {i}
         </button>
@@ -267,7 +373,7 @@ const Applications = () => {
     );
   }
 
-  const hasActiveFilters = search || statusFilter || selectedPS || selectedCategory || feedbackFilter;
+  const hasActiveFilters = search || statusFilter || selectedPS || selectedCategory || feedbackFilter || fromDate || toDate;
 
   return (
     <div className="applications-table-page">
@@ -276,16 +382,28 @@ const Applications = () => {
         <div>
           <h2 className="page-title">Open Court Applications</h2>
           <p className="page-subtitle">
-            Total:  <strong>{processedData.length}</strong> applications
+            Total: <strong>{processedData.length}</strong> applications
             {processedData.length !== applications.length && 
               ` (filtered from ${applications.length})`
             }
           </p>
         </div>
-        <button onClick={fetchApplications} className="refresh-btn">
-          <RefreshCw size={18} />
-          Refresh
-        </button>
+        <div className="header-actions">
+          {/* Export to Excel Button */}
+          <button 
+            onClick={exportToExcel} 
+            className="export-excel-btn"
+            disabled={processedData.length === 0}
+            title="Export to Excel"
+          >
+            <Download size={18} />
+            Export to Excel
+          </button>
+          <button onClick={fetchApplications} className="refresh-btn">
+            <RefreshCw size={18} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Single Row Filters */}
@@ -305,10 +423,46 @@ const Applications = () => {
           )}
         </div>
 
+        {/* From Date Input */}
+        <div className="date-input-wrapper">
+          <Calendar size={18} className="date-icon" />
+          <input
+            type="date"
+            className="filter-date-input"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            placeholder="From Date"
+            title="From Date"
+          />
+          {fromDate && (
+            <button onClick={() => setFromDate('')} className="clear-date-btn">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* To Date Input */}
+        <div className="date-input-wrapper">
+          <Calendar size={18} className="date-icon" />
+          <input
+            type="date"
+            className="filter-date-input"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            placeholder="To Date"
+            title="To Date"
+          />
+          {toDate && (
+            <button onClick={() => setToDate('')} className="clear-date-btn">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         <select 
           className="filter-select-compact" 
           value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target. value)}
+          onChange={(e) => setStatusFilter(e.target.value)}
         >
           <option value="">All Status</option>
           <option value="PENDING">Pending</option>
@@ -379,11 +533,7 @@ const Applications = () => {
                     NAME <SortIcon field="name" />
                   </div>
                 </th>
-                <th onClick={() => handleSort('contact')} className="sortable-header">
-                  <div className="th-content">
-                    CONTACT <SortIcon field="contact" />
-                  </div>
-                </th>
+                <th>CONTACT</th>
                 <th onClick={() => handleSort('police_station')} className="sortable-header">
                   <div className="th-content">
                     POLICE STATION <SortIcon field="police_station" />
@@ -419,18 +569,15 @@ const Applications = () => {
                     DATE <SortIcon field="date" />
                   </div>
                 </th>
-                <th className="actions-header">ACTIONS</th>
+                <th>ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {currentData.length === 0 ? (
                 <tr>
-                  <td colSpan="12" className="no-data-row">
-                    <div className="no-data-content">
-                      <FileText size={48} />
-                      <p>No applications found</p>
-                      <small>Try adjusting your filters</small>
-                    </div>
+                  <td colSpan="12" className="no-data-cell">
+                    <FileText size={48} color="#ccc" />
+                    <p>No applications found</p>
                   </td>
                 </tr>
               ) : (
@@ -450,11 +597,11 @@ const Applications = () => {
                       </button>
                     </td>
                     <td className="cell-ps">{app.police_station}</td>
-                    <td className="cell-division">{app. division || 'N/A'}</td>
+                    <td className="cell-division">{app.division || 'N/A'}</td>
                     <td className="cell-category">{app.category}</td>
                     <td className="cell-marked">{app.marked_to || 'N/A'}</td>
                     <td className="cell-status">
-                      <span className={getStatusBadgeClass(app. status)}>
+                      <span className={getStatusBadgeClass(app.status)}>
                         {app.status}
                       </span>
                     </td>
@@ -465,31 +612,13 @@ const Applications = () => {
                     </td>
                     <td className="cell-date">{formatDate(app.date)}</td>
                     <td className="cell-actions">
-                      <div className="action-btns">
-                        <button 
-                          onClick={() => navigate(`/applications/${app.id}`)}
-                          className="act-btn btn-view"
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleFeedbackUpdate(app.id, 'POSITIVE')}
-                          className="act-btn btn-thumbs-up"
-                          title="Positive"
-                          disabled={app.feedback === 'POSITIVE'}
-                        >
-                          <ThumbsUp size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleFeedbackUpdate(app. id, 'NEGATIVE')}
-                          className="act-btn btn-thumbs-down"
-                          title="Negative"
-                          disabled={app.feedback === 'NEGATIVE'}
-                        >
-                          <ThumbsDown size={16} />
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => navigate(`/applications/${app.id}`)}
+                        className="view-btn"
+                        title="View Details"
+                      >
+                        <Eye size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -500,66 +629,58 @@ const Applications = () => {
       </div>
 
       {/* Pagination */}
-      {processedData.length > 0 && (
-        <div className="pagination-section">
-          <div className="pagination-info-text">
-            Showing {startIndex + 1} to {Math. min(endIndex, processedData.length)} of {processedData.length} entries
+      {totalPages > 1 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Showing {startIndex + 1} to {Math.min(endIndex, processedData.length)} of {processedData.length} entries
           </div>
-
-          <div className="pagination-right">
-            <div className="per-page-selector">
-              <span>Show: </span>
-              <select value={itemsPerPage} onChange={(e) => {
+          <div className="pagination-controls">
+            <button 
+              onClick={() => setCurrentPage(1)} 
+              disabled={currentPage === 1}
+              className="pagination-btn"
+            >
+              <ChevronsLeft size={18} />
+            </button>
+            <button 
+              onClick={() => setCurrentPage(currentPage - 1)} 
+              disabled={currentPage === 1}
+              className="pagination-btn"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            
+            {renderPaginationButtons()}
+            
+            <button 
+              onClick={() => setCurrentPage(currentPage + 1)} 
+              disabled={currentPage === totalPages}
+              className="pagination-btn"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <button 
+              onClick={() => setCurrentPage(totalPages)} 
+              disabled={currentPage === totalPages}
+              className="pagination-btn"
+            >
+              <ChevronsRight size={18} />
+            </button>
+          </div>
+          <div className="items-per-page">
+            <label>Items per page:</label>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
-              }}>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={250}>250</option>
-                <option value={500}>500</option>
-              </select>
-            </div>
-
-            <div className="pagination-btns">
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                className="pg-btn"
-                title="First"
-              >
-                <ChevronsLeft size={18} />
-              </button>
-
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="pg-btn"
-                title="Previous"
-              >
-                <ChevronLeft size={18} />
-              </button>
-
-              {renderPaginationButtons()}
-
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="pg-btn"
-                title="Next"
-              >
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                className="pg-btn"
-                title="Last"
-              >
-                <ChevronsRight size={18} />
-              </button>
-            </div>
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
           </div>
         </div>
       )}

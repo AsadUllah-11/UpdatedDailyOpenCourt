@@ -630,3 +630,213 @@
     min-height: 350px;
   }
 }
+
+/* ==================== */
+/* 🆕 NEW: DATE INPUT STYLES */
+/* ==================== */
+
+.date-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--white);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  min-width: 180px;
+  height: 42px;
+  transition: all 0.2s ease;
+}
+
+.date-input-wrapper:hover {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.date-input-wrapper:focus-within {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.date-icon {
+  color: #64748b;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.filter-date-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background: transparent;
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.filter-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.filter-date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.clear-date-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.clear-date-btn:hover {
+  color: #ef4444;
+}
+
+/* Responsive adjustments for date inputs */
+@media (max-width: 1200px) {
+  .date-input-wrapper {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 768px) {
+  .date-input-wrapper {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .filters-container-compact {
+    flex-wrap: wrap;
+  }
+}
+
+/* ==================== */
+/* Keep all your existing styles below */
+/* ==================== */
+/* ==================== */
+/* 🆕 HEADER ACTIONS GROUP */
+/* ==================== */
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* ==================== */
+/* 🆕 EXPORT EXCEL BUTTON */
+/* ==================== */
+
+.export-excel-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.export-excel-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
+}
+
+.export-excel-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.export-excel-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.export-excel-btn svg {
+  flex-shrink: 0;
+}
+
+/* ==================== */
+/* REFRESH BUTTON */
+/* ==================== */
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.refresh-btn:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.refresh-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+/* ==================== */
+/* RESPONSIVE ADJUSTMENTS */
+/* ==================== */
+
+@media (max-width: 768px) {
+  .page-header-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .export-excel-btn,
+  .refresh-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .export-excel-btn,
+  .refresh-btn {
+    width: 100%;
+  }
+}

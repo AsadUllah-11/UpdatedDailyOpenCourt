@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = 'http://localhost:8000/api';
 
 // Create axios instance
-const api = axios. create({
+const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -11,9 +11,9 @@ const api = axios. create({
 });
 
 // Add token to requests
-api.interceptors.request. use(
+api.interceptors.request.use(
   (config) => {
-    const token = localStorage. getItem('accessToken');
+    const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -56,7 +56,10 @@ api.interceptors.response.use(
   }
 );
 
-// Auth APIs
+// ==========================================
+// AUTH APIs
+// ==========================================
+
 export const login = async (username, password) => {
   const response = await api.post('/auth/login/', { username, password });
   return response.data;
@@ -72,7 +75,11 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
-// ⚡ APPLICATIONS API - SUPER FAST (Single Request, No Pagination)
+// ==========================================
+// APPLICATIONS APIs - Full CRUD
+// ==========================================
+
+// GET - Fetch all applications with optional filters
 export const getApplications = async (params = {}) => {
   try {
     console.time('⚡ Fetch Applications');
@@ -82,7 +89,7 @@ export const getApplications = async (params = {}) => {
     console.timeEnd('⚡ Fetch Applications');
     
     // Handle both paginated and non-paginated responses
-    const data = response.data. results || response.data;
+    const data = response.data.results || response.data;
     
     console.log(`✅ Fetched ${data.length} applications`);
     
@@ -93,65 +100,152 @@ export const getApplications = async (params = {}) => {
   }
 };
 
+// GET - Fetch single application by ID
 export const getApplicationById = async (id) => {
-  const response = await api.get(`/applications/${id}/`);
-  return response.data;
+  try {
+    const response = await api.get(`/applications/${id}/`);
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error fetching application ${id}:`, error);
+    throw error;
+  }
 };
 
+// POST - Create new application
 export const createApplication = async (data) => {
-  const response = await api.post('/applications/', data);
-  return response.data;
+  try {
+    console.log('📝 Creating new application:', data);
+    const response = await api.post('/applications/', data);
+    console.log('✅ Application created successfully');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error creating application:', error);
+    throw error;
+  }
 };
 
+// PUT - Update entire application
 export const updateApplication = async (id, data) => {
-  const response = await api. put(`/applications/${id}/`, data);
-  return response.data;
+  try {
+    console.log(`📝 Updating application ${id}:`, data);
+    const response = await api.put(`/applications/${id}/`, data);
+    console.log('✅ Application updated successfully');
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error updating application ${id}:`, error);
+    throw error;
+  }
 };
 
+// PATCH - Partial update of application
+export const patchApplication = async (id, data) => {
+  try {
+    console.log(`📝 Patching application ${id}:`, data);
+    const response = await api.patch(`/applications/${id}/`, data);
+    console.log('✅ Application patched successfully');
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error patching application ${id}:`, error);
+    throw error;
+  }
+};
+
+// DELETE - Delete application
 export const deleteApplication = async (id) => {
-  const response = await api.delete(`/applications/${id}/`);
-  return response.data;
+  try {
+    console.log(`🗑️ Deleting application ${id}`);
+    const response = await api.delete(`/applications/${id}/`);
+    console.log('✅ Application deleted successfully');
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error deleting application ${id}:`, error);
+    throw error;
+  }
 };
 
+// PATCH - Update only status
 export const updateApplicationStatus = async (id, status) => {
-  const response = await api.patch(`/applications/${id}/`, { status });
-  return response. data;
+  try {
+    const response = await api.patch(`/applications/${id}/`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error updating status for application ${id}:`, error);
+    throw error;
+  }
 };
 
+// PATCH - Update only feedback
 export const updateApplicationFeedback = async (id, feedback, remarks = '') => {
-  const response = await api.patch(`/applications/${id}/`, { feedback, remarks });
-  return response.data;
+  try {
+    const response = await api.patch(`/applications/${id}/`, { feedback, remarks });
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error updating feedback for application ${id}:`, error);
+    throw error;
+  }
 };
 
-// Dashboard APIs
+// ==========================================
+// DASHBOARD APIs
+// ==========================================
+
 export const getDashboardStats = async () => {
-  const response = await api.get('/dashboard-stats/');
-  return response. data;
+  try {
+    const response = await api.get('/dashboard-stats/');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching dashboard stats:', error);
+    throw error;
+  }
 };
 
-// Metadata APIs
+// ==========================================
+// METADATA APIs
+// ==========================================
+
 export const getPoliceStations = async () => {
-  const response = await api. get('/police-stations/');
-  return response.data;
+  try {
+    const response = await api.get('/police-stations/');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching police stations:', error);
+    throw error;
+  }
 };
 
 export const getCategories = async () => {
-  const response = await api.get('/categories/');
-  return response.data;
+  try {
+    const response = await api.get('/categories/');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error fetching categories:', error);
+    throw error;
+  }
 };
 
-// Upload Excel
+// ==========================================
+// EXCEL UPLOAD API
+// ==========================================
+
 export const uploadExcel = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
+  try {
+    console.log('📤 Uploading Excel file:', file.name);
+    
+    const formData = new FormData();
+    formData.append('file', file);
 
-  const response = await api.post('/upload-excel/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+    const response = await api.post('/upload-excel/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
-  return response.data;
+    console.log('✅ Excel file uploaded successfully');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error uploading Excel file:', error);
+    throw error;
+  }
 };
 
 export default api;
