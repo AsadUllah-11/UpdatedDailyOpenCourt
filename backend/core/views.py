@@ -7,6 +7,10 @@ from django.contrib.auth import authenticate, get_user_model
 from django.db.models import Count, Q
 from django.utils.dateparse import parse_date
 import openpyxl
+# Add this to the existing imports at the top
+from django.contrib.auth.hashers import make_password
+from rest_framework.exceptions import ValidationError
+
 from datetime import datetime
 
 from .models import OpenCourtApplication
@@ -393,3 +397,125 @@ def categories(request):
     """Get list of all categories"""
     cats = OpenCourtApplication.objects.values_list('category', flat=True).distinct()
     return Response(list(cats))
+
+# Add these new endpoints at the end of the file (around line 370)
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def staff_management(request):
+    """Staff Management - List all staff or create new staff (ADMIN only)"""
+    
+    # Only ADMIN can access
+    if request.user.role != 'ADMIN':
+        return Response(
+            {'error': 'Only administrators can manage staff'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    if request.method == 'GET':
+        # Get all staff users
+        staff_users = User.objects.filter(role='STAFF').order_by('-date_joined')
+        serializer = UserSerializer(staff_users, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        # Create new staff user
+        try:
+            data = request.data
+            
+            # Validate required fields
+            if not data.get('username'):
+                return Response({'error': 'Username is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not data.get('password'):
+                return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
+            if not data.get('police_station'):
+                return Response({'error': 'Police station is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if username already exists
+            if User.objects.filter(username=data['username']).exists():
+                return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create user
+            user = User.objects.create(
+                username=data['username'],
+                email=data.get('email', ''),
+                first_name=data.get('first_name', ''),
+                last_name=data.get('last_name', ''),
+                role='STAFF',
+                phone=data.get('phone', ''),
+                police_station=data.get('police_station', ''),
+                division=data.get('division', ''),
+                password=make_password(data['password'])  # Hash the password
+            )
+            
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def staff_detail(request, user_id):
+    """Staff Detail - Get, Update or Delete specific staff (ADMIN only)"""
+    
+    # Only ADMIN can access
+    if request.user.role != 'ADMIN':
+        return Response(
+            {'error': 'Only administrators can manage staff'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        staff_user = User.objects.get(id=user_id, role='STAFF')
+    except User.DoesNotExist:
+        return Response({'error': 'Staff not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = UserSerializer(staff_user)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        # Update staff user
+        try:
+            data = request.data
+            
+            # Check if username is being changed and if it already exists
+            if data.get('username') and data['username'] != staff_user.username:
+                if User.objects.filter(username=data['username']).exists():
+                    return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Update fields
+            staff_user.username = data.get('username', staff_user.username)
+            staff_user.email = data.get('email', staff_user.email)
+            staff_user.first_name = data.get('first_name', staff_user.first_name)
+            staff_user.last_name = data.get('last_name', staff_user.last_name)
+            staff_user.phone = data.get('phone', staff_user.phone)
+            staff_user.police_station = data.get('police_station', staff_user.police_station)
+            staff_user.division = data.get('division', staff_user.division)
+            
+            # Update password if provided
+            if data.get('password'):
+                staff_user.password = make_password(data['password'])
+            
+            staff_user.save()
+            
+            serializer = UserSerializer(staff_user)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # Delete staff user
+        staff_user.delete()
+        return Response({'message': 'Staff deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def divisions_list(request):
+    """Get list of all divisions (unique)"""
+    divisions = OpenCourtApplication.objects.values_list('division', flat=True).distinct().exclude(division='')
+    return Response(sorted(list(set(divisions))))

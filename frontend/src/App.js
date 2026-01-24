@@ -7,8 +7,9 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Applications from './pages/Applications';
-import ApplicationDetail from './pages/ApplicationDetail';  // ⚡ ADD THIS
+import ApplicationDetail from './pages/ApplicationDetail';
 import DataTablePage from './pages/DataTablePage';
+import StaffManagement from './pages/StaffManagement';  // ⭐ NEW IMPORT
 import UploadExcel from './pages/UploadExcel';
 import Analytics from './pages/Analytics';
 import './App.css';
@@ -42,7 +43,7 @@ function App() {
             </PrivateRoute>
           } />
 
-          {/* ⚡ Application Detail - ADD THIS */}
+          {/* Application Detail */}
           <Route path="/applications/:id" element={
             <PrivateRoute>
               <Layout>
@@ -56,6 +57,15 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <DataTablePage />
+              </Layout>
+            </PrivateRoute>
+          } />
+          
+          {/* ⭐ NEW: Staff Management */}
+          <Route path="/staff-management" element={
+            <PrivateRoute>
+              <Layout>
+                <StaffManagement />
               </Layout>
             </PrivateRoute>
           } />

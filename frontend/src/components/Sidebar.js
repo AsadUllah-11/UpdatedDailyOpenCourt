@@ -3,9 +3,10 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
-  Table2,  // ⭐ NEW ICON
+  Table2,
   Upload, 
-  BarChart3
+  BarChart3,
+  Users  // ⭐ NEW ICON
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,8 +16,9 @@ const Sidebar = () => {
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['ADMIN', 'STAFF'] },
     { path: '/applications', icon: FileText, label: 'Applications', roles: ['ADMIN', 'STAFF'] },
-    { path: '/data-table', icon: Table2, label: 'Data Table', roles: ['ADMIN', 'STAFF'] },  // ⭐ NEW
-    { path: '/upload', icon: Upload, label: 'Upload Excel', roles: ['STAFF'] },
+    { path: '/data-table', icon: Table2, label: 'Data Table', roles: ['ADMIN', 'STAFF'] },
+    { path: '/staff-management', icon: Users, label: 'Staff Management', roles: ['ADMIN'] },  // ⭐ NEW
+    { path: '/upload', icon: Upload, label: 'Upload Excel', roles: ['ADMIN', 'STAFF'] },
     { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['ADMIN'] },
   ];
 

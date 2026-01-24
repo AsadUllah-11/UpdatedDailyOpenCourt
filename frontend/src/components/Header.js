@@ -1,15 +1,23 @@
-import React from 'react';
-import { LogOut, User, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogOut, User, Shield, MapPin, Building, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import './Header.css';
 
 const Header = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const getRoleDisplay = (role) => {
+    if (role === 'ADMIN') return 'Police Station Officer';
+    if (role === 'STAFF') return 'Staff Member';
+    return role;
   };
 
   return (
@@ -35,16 +43,86 @@ const Header = () => {
           <p className="header-subtitle">Punjab Police</p>
         </div>
       </div>
+      
       <div className="header-right">
-        <div className="user-info">
-          <User size={20} />
-          <div className="user-details">
-            <span className="user-name">{user?.username || 'admin'}</span>
-            <span className="user-role">
-              {user?.role === 'ADMIN' ? 'Police Station Officer' : 'Staff Member'}
-            </span>
+        {/* Enhanced User Info Card */}
+        <div className="user-info-card">
+          <div 
+            className="user-info-main" 
+            onClick={() => setShowUserDropdown(!showUserDropdown)}
+          >
+            <div className="user-avatar">
+              <User size={20} />
+            </div>
+            <div className="user-details">
+              <span className="user-name">
+                {user?.first_name && user?.last_name 
+                  ? `${user.first_name} ${user.last_name}` 
+                  : user?.username || 'User'}
+              </span>
+              <span className="user-role">
+                {getRoleDisplay(user?.role)}
+              </span>
+            </div>
+            {showUserDropdown ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </div>
+
+          {/* Dropdown with Extended Info */}
+          {showUserDropdown && (
+            <div className="user-dropdown">
+              <div className="dropdown-section">
+                <div className="dropdown-item">
+                  <User size={16} />
+                  <div className="item-content">
+                    <span className="item-label">Username</span>
+                    <span className="item-value">{user?.username || '-'}</span>
+                  </div>
+                </div>
+
+                {user?.email && (
+                  <div className="dropdown-item">
+                    <Shield size={16} />
+                    <div className="item-content">
+                      <span className="item-label">Email</span>
+                      <span className="item-value">{user.email}</span>
+                    </div>
+                  </div>
+                )}
+
+                {user?.phone && (
+                  <div className="dropdown-item">
+                    <Shield size={16} />
+                    <div className="item-content">
+                      <span className="item-label">Phone</span>
+                      <span className="item-value">{user.phone}</span>
+                    </div>
+                  </div>
+                )}
+
+                {user?.police_station && (
+                  <div className="dropdown-item highlight">
+                    <MapPin size={16} />
+                    <div className="item-content">
+                      <span className="item-label">Police Station</span>
+                      <span className="item-value">{user.police_station}</span>
+                    </div>
+                  </div>
+                )}
+
+                {user?.division && (
+                  <div className="dropdown-item highlight">
+                    <Building size={16} />
+                    <div className="item-content">
+                      <span className="item-label">Division</span>
+                      <span className="item-value">{user.division}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
+
         <button onClick={handleLogout} className="logout-btn">
           <LogOut size={18} />
           Logout
