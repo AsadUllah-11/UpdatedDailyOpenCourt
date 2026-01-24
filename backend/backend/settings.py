@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -60,7 +61,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     "default": dj_database_url.config(
-        default="sqlite:///db.sqlite3",
+        default=config("DATABASE_URL"),
         conn_max_age=600,
         ssl_require=True
     )
