@@ -1,0 +1,39 @@
+# Daily Open Court - Python Requirements
+# 
+# This is a convenience file that points to the actual requirements.
+# The backend requirements are located in: backend/requirements.txt
+#
+# To install, run ONE of the following:
+#
+# Option 1: Install from backend directory (recommended)
+#   cd backend
+#   pip install -r requirements.txt
+#
+# Option 2: Install from root directory
+#   pip install -r backend/requirements.txt
+#
+# Option 3: Use the automated setup script
+#   chmod +x setup-local.sh
+#   ./setup-local.sh
+
+# Core Django
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.3.0
+django-cors-headers>=4.3.0
+
+# Database
+psycopg2-binary>=2.9.9  # For PostgreSQL in production
+
+# Excel/CSV handling
+openpyxl>=3.1.0
+pandas>=2.1.0
+
+# Environment variables
+python-decouple>=3.8
+
+# Production server
+gunicorn>=21.2.0
+whitenoise>=6.6.0
+
+# Python version requirement: Python 3.8+
