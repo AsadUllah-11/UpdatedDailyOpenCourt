@@ -81,63 +81,81 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
     pagination_class = None
     
     def get_queryset(self):
-        """Filter applications based on user role - OPTIMIZED"""
-        import time
-        start = time.time()
-        
-        # ⚡ Get all fields for proper CRUD operations
+        """Filter applications based on user role - FIXED"""
         queryset = OpenCourtApplication.objects.all()
-        
         user = self.request.user
         
-        # 🆕 FIXED: Better staff filtering with debug logging
+        # 🔍 DEBUG: Print user and query info
+        print(f"\n{'='*80}")
+        print(f"🔍 API REQUEST from user: {user.username}")
+        print(f"   Role: {user.role}")
+        print(f"   Police Station: '{user.police_station}'")
+        print(f"   Total apps in DB: {OpenCourtApplication.objects.count()}")
+        
+        # 🆕 FIXED: Staff filtering with case-insensitive matching
         if user.role == 'STAFF':
             if user.police_station:
-                print(f"🔍 Staff user: {user.username}, Police Station: {user.police_station}")
-                queryset = queryset.filter(police_station__iexact=user.police_station)
-                print(f"📊 Found {queryset.count()} applications for {user.police_station}")
+                user_ps_clean = user.police_station.strip()
+                
+                # Show all police stations for debugging
+                all_ps = list(OpenCourtApplication.objects.values_list('police_station', flat=True).distinct())
+                print(f"\n📋 All Police Stations in DB ({len(all_ps)}):")
+                for ps in all_ps[:10]:
+                    count = OpenCourtApplication.objects.filter(police_station=ps).count()
+                    print(f"   - '{ps}' ({count} apps)")
+                
+                # Apply case-insensitive filter
+                queryset = queryset.filter(police_station__iexact=user_ps_clean)
+                
+                print(f"\n🔎 Filtering for staff: '{user_ps_clean}'")
+                print(f"   Matched applications: {queryset.count()}")
+                
+                if queryset.count() == 0:
+                    print(f"\n⚠️⚠️⚠️ WARNING: NO APPLICATIONS FOUND! ⚠️⚠️⚠️")
+                    print(f"   Staff's police_station '{user_ps_clean}' doesn't match any data")
+                    print(f"   Fix: Update user's police_station to match one of the above")
             else:
-                print(f"⚠️ Staff user {user.username} has no police_station assigned!")
-                queryset = queryset.none()  # Return empty queryset
+                print(f"\n⚠️ Staff user has NO police_station assigned - returning empty")
+                queryset = queryset.none()
         else:
-            print(f"👤 Admin/Other user: {user.username}, showing all applications")
+            print(f"\n👤 Admin user - showing all {queryset.count()} applications")
         
-        # Filter by status
+        # Apply additional filters
         status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
+            print(f"   Status filter: {status_param} → {queryset.count()} apps")
         
-        # Filter by police station
         ps_param = self.request.query_params.get('police_station')
         if ps_param:
             queryset = queryset.filter(police_station=ps_param)
+            print(f"   PS filter: {ps_param} → {queryset.count()} apps")
         
-        # Filter by category
         category_param = self.request.query_params.get('category')
         if category_param:
             queryset = queryset.filter(category=category_param)
+            print(f"   Category filter: {category_param} → {queryset.count()} apps")
         
-        # Filter by date range (From Date)
+        # Date filters
         from_date = self.request.query_params.get('from_date')
         if from_date:
             try:
                 parsed_from_date = parse_date(from_date)
                 if parsed_from_date:
                     queryset = queryset.filter(date__gte=parsed_from_date)
-                    print(f"📅 Filtering from date: {parsed_from_date}")
+                    print(f"   From date: {parsed_from_date} → {queryset.count()} apps")
             except Exception as e:
-                print(f"⚠️ Error parsing from_date: {e}")
+                print(f"   ⚠️ Error parsing from_date: {e}")
         
-        # Filter by date range (To Date)
         to_date = self.request.query_params.get('to_date')
         if to_date:
             try:
                 parsed_to_date = parse_date(to_date)
                 if parsed_to_date:
                     queryset = queryset.filter(date__lte=parsed_to_date)
-                    print(f"📅 Filtering to date: {parsed_to_date}")
+                    print(f"   To date: {parsed_to_date} → {queryset.count()} apps")
             except Exception as e:
-                print(f"⚠️ Error parsing to_date: {e}")
+                print(f"   ⚠️ Error parsing to_date: {e}")
         
         # Search
         search = self.request.query_params.get('search')
@@ -148,18 +166,18 @@ class OpenCourtApplicationViewSet(viewsets.ModelViewSet):
                 Q(contact__icontains=search) |
                 Q(sr_no__icontains=str(search))
             )
+            print(f"   Search: {search} → {queryset.count()} apps")
         
-        # Order by created_at desc
+        # Order by primary key for consistent ordering
         queryset = queryset.order_by('-created_at')
         
-        end = time.time()
-        print(f"⚡ Query time: {(end - start) * 1000:.2f}ms")
-        print(f"✅ Returning {queryset.count()} applications")
+        print(f"\n✅ FINAL: Returning {queryset.count()} applications")
+        print(f"{'='*80}\n")
         
         return queryset
 
     def list(self, request, *args, **kwargs):
-        """Override list to return full serialized data"""
+        """Return full data without pagination"""
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -242,22 +260,18 @@ def upload_excel(request):
         updated_count = 0
         errors = []
         
-        # Skip header row
         for row_num, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
             try:
                 sr_no = row[0]
-                
                 if not sr_no:
                     continue
                 
-                # Parse date
                 date_value = row[5]
                 if isinstance(date_value, datetime):
                     date_value = date_value.date()
                 elif isinstance(date_value, str):
                     date_value = parse_date(date_value)
                 
-                # Parse days
                 days_value = row[12]
                 if days_value and str(days_value).isdigit():
                     days_value = int(days_value)
@@ -281,7 +295,6 @@ def upload_excel(request):
                     'dairy_ps': row[14] if len(row) > 14 else '',
                 }
                 
-                # Check if application exists
                 application, created = OpenCourtApplication.objects.update_or_create(
                     sr_no=sr_no,
                     defaults=application_data
@@ -316,15 +329,14 @@ def upload_excel(request):
 def dashboard_stats(request):
     """Get dashboard statistics"""
     user = request.user
-    
-    # Base queryset
     queryset = OpenCourtApplication.objects.all()
     
-    # Filter for STAFF role
+    # Apply same filtering as get_queryset
     if user.role == 'STAFF' and user.police_station:
-        queryset = queryset.filter(police_station__iexact=user.police_station)
+        user_ps_clean = user.police_station.strip()
+        queryset = queryset.filter(police_station__iexact=user_ps_clean)
+        print(f"📊 Dashboard for staff '{user.username}': {queryset.count()} applications")
     
-    # Overall stats
     stats = {
         'total_applications': queryset.count(),
         'pending': queryset.filter(status='PENDING').count(),
@@ -335,14 +347,12 @@ def dashboard_stats(request):
         'negative_feedback': queryset.filter(feedback='NEGATIVE').count(),
     }
     
-    # Category wise stats
     category_stats = list(
         queryset.values('category')
         .annotate(count=Count('id'))
         .order_by('-count')[:10]
     )
     
-    # Police Station wise stats (only for ADMIN)
     ps_stats = []
     if user.role == 'ADMIN':
         ps_stats = list(
@@ -355,7 +365,6 @@ def dashboard_stats(request):
             .order_by('-count')[:10]
         )
     
-    # Division wise stats
     division_stats = list(
         queryset.values('division')
         .annotate(count=Count('id'))
