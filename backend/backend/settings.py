@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 import dj_database_url
 from decouple import config
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -10,7 +11,13 @@ SECRET_KEY = 'django-insecure-your-secret-key-here-change-in-production'
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["*"]
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+ALLOWED_HOSTS = [
+    'dailyopencourt-backend.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -28,10 +35,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -61,7 +68,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3"),
+        default=config("DATABASE_URL", default="sqlite:///db.sqlite3"),
         conn_max_age=600,
         ssl_require=True
     )
@@ -101,9 +108,15 @@ AUTH_USER_MODEL = 'core.User'
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
+    'https://dailyopencourt-frontend.onrender.com',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "authorization",
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
